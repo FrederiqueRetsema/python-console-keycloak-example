@@ -50,13 +50,14 @@ class KCAuth:
     #Gets an access token based on user credentials (when no datastore found)
     def requestAccessTokenBasedOnUserCredentials(self) : 
         print("No refresh_token found on datastore (" + self.datastore_filename + "), therefore user credentials will be prompted")
-        user = raw_input("username for " + self.realm + " realm:")
+        user = input("username for " + self.realm + " realm:")
         passwd = getpass.getpass("password:")
         payload = {
             "username": user, 
             "password": passwd,
             "grant_type": "password",
-            "client_id": self.client_id
+            "client_id": self.client_id,
+            "scope": "openid"
         }
 
         #Add secret if configured
@@ -107,6 +108,16 @@ class KCAuth:
 
     def getAuthServerUrl(self):
         return self.auth_server_url
+
+    def getUserInfo(self, token):
+        print ("Asking .well-known openid-configuration about userinfo_endpoint")
+        r = requests.get(self.keycloak_realm_url + '.well-known/openid-configuration')
+        print("Requesting: " + r.json()["userinfo_endpoint"])
+        r = requests.get(r.json()["userinfo_endpoint"], headers={'Authorization': 'Bearer '+token})
+        print (r)
+        print(r.json())
+        return r.json()["groups"]
+
     
     def __init__(self, configKcFile):
         with open(configKcFile) as f:
@@ -137,3 +148,7 @@ if __name__ == '__main__':
     accessToken = kcauth.getAccessToken()
     print("\nYour access token:")
     print(accessToken)
+    userInfo = kcauth.getUserInfo(accessToken)
+    print("\nYour group info:")
+    print(userInfo)
+    
