@@ -1,3 +1,4 @@
 *.pyc
 .kc*
 *.json
+__pycache__/*
