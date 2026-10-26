@@ -6,12 +6,13 @@ A client application, configured as an OIDC client in [Keycloak](https://www.key
 #### Keycloak configuration (if not done already)
 
 Create a new OIDC client in keycloak, with "Access Type" set to "confidential" and optionally disable the option "Standard Flow Enabled" and save it.
-Click again on the client and go under Credentials tab, you will see the secret.
+Under the Credentials tab, set **Client Authenticator** to **Signed Jwt with Client Secret** (`client_secret_jwt`). The generated secret shown there is used as the HMAC key to sign the client assertion; it is never sent to Keycloak directly.
 
 ## Usage
-Copy `keycloak.json.template` to `keycloak.json` or to any filename of your choice and change the values according to your environment.
-If the filename is different than `keycloak.json`, pass the filename as argument. 
+Install the dependencies and copy `keycloak.json.template` to `keycloak.json` (or any filename of your choice) and change the values according to your environment.
+If the filename is different than `keycloak.json`, pass the filename as argument.
 ```shell
+pip install -r requirements.txt
 python KCAuth.py <filename>
 ```
 

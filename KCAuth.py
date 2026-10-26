@@ -1,4 +1,4 @@
-import time, getpass, requests, os.path, json, sys, secrets, urllib.parse, webbrowser
+import time, getpass, requests, os.path, json, sys, secrets, urllib.parse, webbrowser, hmac, hashlib, base64
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 #Note that token settings (access token life time or refresh token sessions) can be changed in realm configuration 
@@ -188,12 +188,62 @@ class KCAuth:
 
 
     #Builds the kwargs for a token endpoint POST.
-    #For a confidential client (secret configured) Keycloak expects the client
-    #credentials via HTTP Basic auth (client_id:client_secret), not in the body.
+    #Instead of sending the raw client secret (e.g. via HTTP Basic auth), this
+    #client authenticates with the "Signed JWT with Client Secret" method
+    #(client_secret_jwt, RFC 7523 / OIDC Core). We build a short-lived JWT, sign
+    #it with HMAC-SHA256 using the client secret as the key, and send it as a
+    #client_assertion in the request body. The secret itself never travels over
+    #the wire.
     def buildTokenRequestKwargs(self, payload):
         if(len(self.secret) > 0):
-            return {"data": payload, "auth": (self.client_id, self.secret)}
+            payload = dict(payload)
+            payload["client_assertion_type"] = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
+            payload["client_assertion"] = self.buildClientAssertion()
         return {"data": payload}
+
+
+    #Base64url-encode without padding, as required by the JWS/JWT spec.
+    def base64UrlEncode(self, raw):
+        return base64.urlsafe_b64encode(raw).rstrip(b"=").decode("ascii")
+
+
+    #Builds and signs a client assertion JWT for the client_secret_jwt method.
+    #The JWT is signed with HS256 using the client secret as the HMAC key, which
+    #is what Keycloak expects when the client's "Client Authenticator" is set to
+    #"Signed Jwt with Client Secret".
+    def buildClientAssertion(self):
+        now = int(time.time())
+        # Keycloak's JWTClientSecretAuthenticator validates the assertion's
+        # audience against the realm issuer URL (e.g.
+        # http://localhost:8080/realms/test-realm), NOT the token endpoint.
+        # Using the token endpoint here results in "unauthorized_client".
+        issuer = self.getOpenidConfiguration()["issuer"]
+
+        header = {
+            "alg": "HS256",
+            "typ": "JWT"
+        }
+        claims = {
+            "iss": self.client_id,
+            "sub": self.client_id,
+            "aud": issuer,
+            "jti": secrets.token_urlsafe(32),
+            "iat": now,
+            "exp": now + 60
+        }
+
+        signing_input = (
+            self.base64UrlEncode(json.dumps(header, separators=(",", ":")).encode("utf-8"))
+            + "."
+            + self.base64UrlEncode(json.dumps(claims, separators=(",", ":")).encode("utf-8"))
+        )
+        signature = hmac.new(
+            self.secret.encode("utf-8"),
+            signing_input.encode("ascii"),
+            hashlib.sha256
+        ).digest()
+
+        return signing_input + "." + self.base64UrlEncode(signature)
 
 
     def getUserInfo(self, token):

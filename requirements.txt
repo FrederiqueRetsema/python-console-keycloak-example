@@ -1,0 +1,4 @@
+# The signed JWT client assertion (client_secret_jwt) is built with the Python
+# standard library (hmac, hashlib, base64, json), so no JWT package is needed.
+# The only external dependency is the HTTP client.
+requests==2.32.3
