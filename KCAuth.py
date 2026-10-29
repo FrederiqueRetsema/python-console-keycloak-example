@@ -34,7 +34,7 @@ class KCAuth:
             "client_id": self.client_id
         }
 
-        r = requests.post(self.getOrRequestTokenEndPoint(), **self.buildTokenRequestKwargs(payload))
+        r = requests.post(self.getOrRequestTokenEndPoint(), verify=self.verify, **self.buildTokenRequestKwargs(payload))
         if (r.status_code != 200):
             print("Some error occured, http code: " + str(r.status_code))
             print(r.text)
@@ -130,7 +130,7 @@ class KCAuth:
             "redirect_uri": self.redirect_uri
         }
 
-        r = requests.post(self.getOrRequestTokenEndPoint(), **self.buildTokenRequestKwargs(payload))
+        r = requests.post(self.getOrRequestTokenEndPoint(), verify=self.verify, **self.buildTokenRequestKwargs(payload))
         if (r.status_code != 200):
             print("Some error occured while exchanging the authorization code, http code: " + str(r.status_code))
             print(r.text)
@@ -166,7 +166,7 @@ class KCAuth:
         if(self.openid_configuration is None):
             wellKnownUrl = self.keycloak_realm_url + '.well-known/openid-configuration'
             print("Requesting .well-known openid-configuration: " + wellKnownUrl)
-            self.openid_configuration = requests.get(wellKnownUrl).json()
+            self.openid_configuration = requests.get(wellKnownUrl, verify=self.verify).json()
         return self.openid_configuration
 
 
@@ -249,7 +249,7 @@ class KCAuth:
     def getUserInfo(self, token):
         userinfo_endpoint = self.getOpenidConfiguration()["userinfo_endpoint"]
         print("Requesting userinfo_endpoint: " + userinfo_endpoint)
-        r = requests.get(userinfo_endpoint, headers={'Authorization': 'Bearer '+token})
+        r = requests.get(userinfo_endpoint, headers={'Authorization': 'Bearer '+token}, verify=self.verify)
         print (r)
         print(r.json())
         return r.json()["groups"]
@@ -270,6 +270,22 @@ class KCAuth:
             self.secret = data["credentials"]["secret"]
         else:
             self.secret = ""
+        # TLS certificate verification for every outgoing HTTPS request.
+        # Controlled by an optional "verify" key in the keycloak config file:
+        #   - omitted / true  -> verify against the system CA bundle (default, secure)
+        #   - "<path>"        -> verify against a custom CA bundle or self-signed
+        #                        cert file (recommended for self-signed setups)
+        #   - false           -> disable verification entirely (INSECURE, testing only)
+        self.verify = data.get("verify", True)
+        if(self.verify is False):
+            # Suppress the noisy per-request InsecureRequestWarning since the
+            # user explicitly opted out of certificate verification.
+            print("!!!!!!!! TLS certificate verification is DISABLED (verify=false). Use only for testing with self-signed certificates !!!!!!!!!")
+            try:
+                import urllib3
+                urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+            except Exception:
+                pass
         self.openid_configuration = None
         self.authorization_endpoint = ""
         self.state = ""

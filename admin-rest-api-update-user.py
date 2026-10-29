@@ -7,16 +7,16 @@ from KCAuth import KCAuth
 REST_API_USERS = "/{realm}/users"
 REST_API_USER = "/{realm}/users/{id}"
 
-def getResource(resourceUrl, parameters, token):
+def getResource(resourceUrl, parameters, token, verify=True):
     headers = { 'authorization': "Bearer " + token, 'content-type': "application/json" }
-    r = requests.get(resourceUrl, headers=headers, params=parameters)
+    r = requests.get(resourceUrl, headers=headers, params=parameters, verify=verify)
     print("HTTP GET: " + resourceUrl + "\tPARAMETERS: " + str(parameters))
     return r.json()
 
 
-def updateResource(resourceUrl, data, token):
+def updateResource(resourceUrl, data, token, verify=True):
     headers = { 'authorization': "Bearer " + token, 'content-type': "application/json" }
-    r = requests.put(resourceUrl, headers=headers, data=json.dumps(data))
+    r = requests.put(resourceUrl, headers=headers, data=json.dumps(data), verify=verify)
     print("HTTP PUT (Update): " + resourceUrl + "\tDATA: " + json.dumps(data))
     if (r.status_code != 204):
         print("Should receive an HTTP 204 (no content), but something else received...")
@@ -36,15 +36,16 @@ def buildResourceUrl(baseUrl, relativeUrl, urlParams):
 if __name__ == '__main__':
     kcAuth = KCAuth("keycloak.master.json")
     adminAccessToken = kcAuth.getAccessToken()
+    verify = kcAuth.verify
     authServerUrl = kcAuth.getAuthServerUrl()
     resourceBaseUrl = authServerUrl + '/admin/realms'
     resourceRealm =  'SIB-AAI'
 
     searchUsersResourceUrl = buildResourceUrl(resourceBaseUrl, REST_API_USERS, {"realm" : resourceRealm})
-    foundUsers = getResource(searchUsersResourceUrl, {'username':'dummy'}, adminAccessToken)
+    foundUsers = getResource(searchUsersResourceUrl, {'username':'dummy'}, adminAccessToken, verify)
     userId = foundUsers[0]["id"]
     userResourceUrl = buildResourceUrl(resourceBaseUrl, REST_API_USER, {"realm" : resourceRealm, "id": userId})
-    user = getResource(userResourceUrl, {}, adminAccessToken)
+    user = getResource(userResourceUrl, {}, adminAccessToken, verify)
     print("Dummy user:")
     print("current attribute " + str(user["attributes"]["test-attribute"]))
     print("current federated identity" + str(user["federatedIdentities"]))
@@ -61,11 +62,11 @@ if __name__ == '__main__':
     
     #Updates user
     print("Updating user ... ")
-    updateResource(userResourceUrl, user, adminAccessToken)
+    updateResource(userResourceUrl, user, adminAccessToken, verify)
 
     print("New attribute " + str(user["attributes"]["test-attribute"]))
     print("New federated identity" + str(user["federatedIdentities"]))
-    user = getResource(userResourceUrl, {}, adminAccessToken)
+    user = getResource(userResourceUrl, {}, adminAccessToken, verify)
 
     #See that attribute was update but federated identity was not updated...
     print("Check new attribute " + str(user["attributes"]["test-attribute"]))
