@@ -1,6 +1,6 @@
 {
-    "realm": "test-realm",
-    "resource": "test-client",
+    "realm": "demo-realm",
+    "resource": "demo-client",
     "auth-server-url": "http://localhost:8080",
     "verify": false,
     "credentials": {
