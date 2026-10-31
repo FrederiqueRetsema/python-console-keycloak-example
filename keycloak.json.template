@@ -1,7 +1,7 @@
 {
     "realm": "test-realm",
     "resource": "test-client",
-    "auth-server-url": "https://keycloak.local:8443",
+    "auth-server-url": "http://localhost:8080",
     "verify": false,
     "credentials": {
         "secret": "--secret--"
